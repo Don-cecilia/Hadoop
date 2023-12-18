@@ -1,0 +1,67 @@
+hdfs dfs -mkdir /group3
+hdfs dfs -put D:\class_units\3.1\AdvDB\TakeAwayCat\covid19data.csv /group3
+
+
+from pyspark.sql import SparkSession
+spark = SparkSession.builder.appName("ExtractData").getOrCreate()
+data = spark.read.format("csv").option("header","true").load("hdfs://localhost:9000/group3/covid19data.csv")
+data.show()
+
+
+cleaned_data = data.filter((data["Infections"] != 0) | (data["Recoveries"] != 0) | (data["Casualities"] != 0))
+cleaned_data.show()
+
+
+>>> from pyspark.sql import SparkSession
+from pyspark.ml.feature import VectorAssembler
+>>> from pyspark.ml.regression import LinearRegression
+>>> spark = SparkSession.builder.appName("DeathPrediction").getOrCreate()
+>>> data = spark.read.csv("hdfs://localhost:9000/group3/covid19data.csv", header=True, inferSchema=True)
+>>> feature_cols = ['Infections', 'Recoveries']
+>>> data_assembled = assembler.transform(data).select('Features', 'Casualities')
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+NameError: name 'assembler' is not defined
+>>> assembler = VectorAssembler(inputCols=feature_cols, outputCol='Features')
+>>> data_assembled = assembler.transform(data).select('Features', 'Casualities')
+>>> train_data, test_data = data_assembled.randomSplit([0.8, 0.2], seed=42)
+>>> lr = LinearRegression(featuresCol='Features', labelCol='Casualities')
+>>> lr_model = lr.fit(train_data)
+>>> from pyspark.ml.evaluation import RegressionEvaluator
+>>> evaluator = RegressionEvaluator(labelCol='Casualities', predictionCol='prediction', metricName='rmse')
+>>> rmse = evaluator.evaluate(predictions)
+>>> predictions = lr_model.transform(test_data)
+>>> rmse = evaluator.evaluate(predictions)
+>>> r2 = evaluator.evaluate(predictions, {evaluator.metricName: "r2"})
+>>> print(f"Root Mean Squared Error (RMSE): {rmse}")
+Root Mean Squared Error (RMSE): 334.8099187005787
+print(f"R-squared (R2): {r2}")
+R-squared (R2): 0.9764618107486417
+
+
+>>> import matplotlib.pyplot as plt
+>>> import pandas as pd
+>>> predictions_pd = predictions.select('Casualities', 'prediction').toPandas()
+>>> plt.figure(figsize=(8, 6))
+<Figure size 800x600 with 0 Axes>
+>>> plt.scatter(predictions_pd['Casualities'], predictions_pd['prediction'], color='blue')
+<matplotlib.collections.PathCollection object at 0x000001FF82699090>
+>>> plt.title('Actual vs Predicted Deaths')
+Text(0.5, 1.0, 'Actual vs Predicted Deaths')
+>>> plt.xlabel('Actual Deaths')
+Text(0.5, 0, 'Actual Deaths')
+>>> plt.ylabel('Predicted Deaths')
+Text(0, 0.5, 'Predicted Deaths')
+>>> plt.grid(True)
+>>> plt.show()
+
+
+
+>>> test_predictions = lr_model.transform(test_data)
+>>> test_rmse = evaluator.evaluate(test_predictions)
+>>> test_r2 = evaluator.evaluate(test_predictions, {evaluator.metricName: "r2"})
+>>> print(f"Test Root Mean Squared Error (RMSE): {test_rmse}")
+Test Root Mean Squared Error (RMSE): 334.8099187005787
+>>> print(f"Test R-squared (R2): {test_r2}")
+Test R-squared (R2): 0.9764618107486417
+
